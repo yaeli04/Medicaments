@@ -2,7 +2,9 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#4000D4"
+    android:padding="8dp">
 
     <TextView
         android:id="@+id/denomination"
@@ -26,6 +28,19 @@
         android:id="@+id/spinnerVoiesAdmin"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
+
+
+    <Button
+        android:id="@+id/tvComposition"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="C" />
+
+    <Button
+        android:id="@+id/tvPresentation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="P" />
 
 
 </LinearLayout>

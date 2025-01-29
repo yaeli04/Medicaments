@@ -22,15 +22,15 @@ public  class DatabaseHelper extends SQLiteOpenHelper {
     private static final int DATABASE_VERSION = 1;
     private String DATABASE_PATH;
 
-    public DatabaseHelper(Context context){
+    public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
         this.mycontext = context;
         String filesDir = context.getFilesDir().getPath(); // /data/data/com.package.nom/files/
         DATABASE_PATH = filesDir.substring(0, filesDir.lastIndexOf("/")) + "/databases/"; // /data/data/com.package.nom/databases/
 
 
-        if (!checkdatabase()){
-            Log.d("EUROFORMA","bdd a copier");
+        if (!checkdatabase()) {
+            Log.d("EUROFORMA", "bdd a copier");
             copydatabase();
         }
     }
@@ -51,11 +51,12 @@ public  class DatabaseHelper extends SQLiteOpenHelper {
             copydatabase();
         }
     }
+
     private void copydatabase() {
 
         final String outFileName = DATABASE_PATH + DATABASE_NAME;
-        Log.d("EUROFORMA",outFileName);
-        Log.d( "EUROFORMA", mycontext.getAssets().toString());
+        Log.d("EUROFORMA", outFileName);
+        Log.d("EUROFORMA", mycontext.getAssets().toString());
 
         //AssetManager assetManager = mycontext.getAssets();
         InputStream myInput;
@@ -82,8 +83,7 @@ public  class DatabaseHelper extends SQLiteOpenHelper {
             while ((length = myInput.read(buffer)) > 0) {
                 myOutput.write(buffer, 0, length);
             }
-
-            // Fermeture
+// Fermeture
             Log.d("APP", "BDD copiée");
             myOutput.flush();
             myOutput.close();
@@ -104,6 +104,7 @@ public  class DatabaseHelper extends SQLiteOpenHelper {
         }
 
     }
+
     private boolean checkdatabase() {
         // retourne true/false si la bdd existe dans le dossier de l'app
         File dbfile = new File(DATABASE_PATH + DATABASE_NAME);
@@ -117,7 +118,7 @@ public  class DatabaseHelper extends SQLiteOpenHelper {
         List<String> voiesAdminList = new ArrayList<>();
 
         SQLiteDatabase db = this.getReadableDatabase(); // Correction : Utilisation de l'instance actuelle
-        Cursor cursor = db.rawQuery("SELECT DISTINCT Voie_dadministration FROM CIS_bdpm WHERE Voie_dadministration NOT LIKE '%;%' ORDER BY Voie_dadministration", null);
+        Cursor cursor = db.rawQuery("SELECT DISTINCT Voies_administration FROM CIS_bdpm WHERE Voies_administration NOT LIKE '%;%' ORDER BY Voies_administration", null);
         voiesAdminList.add(PREMIERE_VOIE);
         if (cursor.moveToFirst()) {
             do {
@@ -132,5 +133,123 @@ public  class DatabaseHelper extends SQLiteOpenHelper {
         return voiesAdminList;
     }
 
-}
+    public List<Medicament> searchMedicaments(String denomination, String formePharmaceutique, String titulaires, String denominationSubstance, String voiesAdmin, String DateAMM) {
+        List<Medicament> medicamentList = new ArrayList<>();
+        ArrayList<String> selectionArgs = new ArrayList<>();
+        selectionArgs.add("%" + denomination + "%");
+        selectionArgs.add("%" + formePharmaceutique + "%");
+        selectionArgs.add("%" + titulaires + "%");
+        selectionArgs.add(DateAMM);
+        selectionArgs.add("%" + denominationSubstance + "%");
+        SQLiteDatabase db = this.getReadableDatabase();
+        String finSQL = "";
+        // String Sql_nbmolecule ="" ;
 
+        if (!voiesAdmin.equals(PREMIERE_VOIE)) {
+            finSQL = "AND  Voies_administration LIKE ?";
+            selectionArgs.add("%" + voiesAdmin + "%");
+        }
+        String SQLSubstance = "SELECT CODE_CIS FROM CIS_COMPO_bdpm WHERE replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(upper(Denomination_substance), 'Â','A'),'Ä','A'),'À','A'),'É','E'),'Á','A'),'Ï','I'), 'Ê','E'),'È','E'),'Ô','O'),'Ü','U'), 'Ç','C' ) LIKE ?";
+//String SQLSubstance = "SELECT CODE_CIS FROM CIS_COMPO_bdpm WHERE Denomination_substance COLLATE latin1_general_cs_ai LIKE ?" ;
+
+        // La requête SQL de recherche
+        String query = "SELECT *,(select count(*) from CIS_COMPO_bdpm c where c.Code_CIS=m.Code_CIS) as nb_molecule FROM CIS_bdpm m  WHERE " +
+                "Denomination LIKE ? AND " +
+                "Forme_pharmaceutique LIKE ? AND " +
+                "Titulaires LIKE ? AND " +
+                "Date_dAMM_2  >= ? AND " +
+                "Code_CIS IN (" + SQLSubstance + ")" +
+                finSQL;
+
+        // Les valeurs à remplacer dans la requête
+
+        Log.d("SQL", query);
+        Cursor cursor = db.rawQuery(query, selectionArgs.toArray(new String[0]));
+
+
+        if (cursor.moveToFirst()) {
+            do {
+                // Récupérer les valeurs de la ligne actuelle
+                int codeCIS = cursor.getInt(cursor.getColumnIndex("Code_CIS"));
+                String denominationMedicament = cursor.getString(cursor.getColumnIndex("Denomination"));
+                String formePharmaceutiqueMedicament = cursor.getString(cursor.getColumnIndex("Forme_pharmaceutique"));
+                String voiesAdminMedicament = cursor.getString(cursor.getColumnIndex("Voies_administration"));
+                String titulairesMedicament = cursor.getString(cursor.getColumnIndex("Titulaires"));
+                String statutAdministratif = cursor.getString(cursor.getColumnIndex("Statut_administratif_AMM"));
+                String CountMolecule = cursor.getString(cursor.getColumnIndex("nb_molecule"));
+                String dateAutorisation = cursor.getString(cursor.getColumnIndex("Date_AMM"));
+
+
+                // Créer un objet Medicament avec les valeurs récupérées
+                Medicament medicament = new Medicament();
+                medicament.setCodeCIS(codeCIS);
+                medicament.setDenomination(denominationMedicament);
+                medicament.setFormePharmaceutique(formePharmaceutiqueMedicament);
+                medicament.setVoiesAdmin(voiesAdminMedicament);
+                medicament.setTitulaires(titulairesMedicament);
+                medicament.setStatutAdministratif(statutAdministratif);
+                medicament.setDateAutorisation(dateAutorisation);
+                // medicament.setNb_molecule(CountMolecule.toString());
+                medicament.setNb_molecule(String.valueOf(getNombreMolecules(codeCIS)));
+                // Ajouter l'objet Medicament à la liste
+                medicamentList.add(medicament);
+            } while (cursor.moveToNext());
+
+        }
+
+        cursor.close();
+        db.close();
+
+        return medicamentList;
+    }
+
+    public int getNombreMolecules(int codeCIS) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery("select count(*) from CIS_COMPO_bdpm  where Code_CIS=?", new String[]{String.valueOf(codeCIS)});
+        cursor.moveToFirst();
+        int nb = cursor.getInt(0);
+        return (nb);
+    }
+
+    public List<String> getCompositionMedicament(int codeCIS) {
+        List<String> compositionList = new ArrayList<>();
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM CIS_compo_bdpm WHERE Code_CIS = ?", new String[]{String.valueOf(codeCIS)});
+        int i = 0;
+        if (cursor.moveToFirst()) {
+            do {
+                i++;
+                String substance = cursor.getString(cursor.getColumnIndex("Denomination_substance"));
+                String dosage = cursor.getString(cursor.getColumnIndex("Dosage_substance"));
+                compositionList.add(i + ":" + substance + "(" + dosage + ")");
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        db.close();
+
+        return compositionList;
+    }
+
+    public List<String> getPresentationMedicament(int codeCIS) {
+        List<String> presentationList = new ArrayList<>();
+
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM CIS_CIP_bdpm WHERE Code_CIS = ?", new String[]{String.valueOf(codeCIS)});
+        int i = 0;
+        if (cursor.moveToFirst()) {
+            do {
+                i++;
+                String presentation = cursor.getString(cursor.getColumnIndex("Libelle_presentation"));
+                presentationList.add(i + ":" + presentation);
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        db.close();
+
+        return presentationList;
+    }
+}
