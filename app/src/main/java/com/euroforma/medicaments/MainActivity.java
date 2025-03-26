@@ -235,6 +235,8 @@ public class MainActivity extends AppCompatActivity {
     private void logout() {
         // Ajoutez ici votre code de déconnexion
         // Par exemple : effacer les préférences utilisateur, fermer la session, etc.
+        Intent LogoutIntent = new Intent(MainActivity.this,Authentification.class);
+        startActivity(LogoutIntent);
         finish(); // Ferme l'activité actuelle
     }
 }
